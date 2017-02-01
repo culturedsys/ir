@@ -1,5 +1,5 @@
 """
-Functions relating to constructing and inverted indexes.
+Functions relating to constructing and querying inverted indexes.
 """
 import collections
 import terms
@@ -107,3 +107,22 @@ def union_sorted(list1, list2):
     elif term2 is not None:
         yield term2
         yield from iter2
+
+
+def build_position_index(documents):
+    """
+    Given a map from document ids to document contents, return a map from terms to a list of positions within each
+    document at which that term occurs.
+    """
+    index = collections.defaultdict(list)
+
+    docids = sorted(documents.keys())
+
+    for docid in docids:
+        for (position, term) in enumerate(terms.normalize(terms.split_whitespace(documents[docid]))):
+            if len(index[term]) == 0 or index[term][-1][0] != docid:
+                index[term].append((docid, [position]))
+            else:
+                index[term][-1][1].append(position)
+
+    return index

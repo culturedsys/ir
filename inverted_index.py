@@ -5,7 +5,8 @@ import collections
 import terms
 import bisect
 import re
-
+import itertools
+import functools
 
 def build_inverted_index(documents):
     """
@@ -223,7 +224,19 @@ def wildcard_match(query, term):
 
 def query_wildcard(index, kgram_index, k, query):
     kgs = (kg for kg in kgrams(query, k) if '*' not in kg)
-    terms = (kgram_index[kg] for kg in kgs)
+    terms = functools.reduce(intersect_sorted, (kgram_index[kg] for kg in kgs))
     terms = (term for term in terms if wildcard_match(query, term))
 
+    term_iter = iter(terms)
+    term = next(term_iter, None)
+
+    result = []
+
+    term = next(term_iter, None)
+
+    while term is not None:
+        result = union_sorted(result, index[term])
+        term = next(term_iter, None)
+
+    return result
 

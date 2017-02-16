@@ -3,6 +3,8 @@ Functions relating to constructing and querying inverted indexes.
 """
 import collections
 import terms
+import bisect
+import re
 
 
 def build_inverted_index(documents):
@@ -126,3 +128,102 @@ def build_position_index(documents):
                 index[term][-1][1].append(position)
 
     return index
+
+
+def positional_intersect(position_list1,
+                         position_list2,
+                         proximity):
+    """
+    Given two positional posting lists, find documents where there is an element in the first list within a specified
+    distance from an element in the second list.
+
+    :param position_list1: A positional list, that is, a list of pairs of document ids and ordered positions,
+    ordered by document id
+    :param position_list2: A second positional list.
+    :param proximity: The proximity to consider
+    :return: An iterator over document id, position list pairs, giving all the matching occurences of the first term
+    """
+
+    iter1 = iter(position_list1)
+    iter2 = iter(position_list2)
+
+    (docid1, term_positions1) = next(iter1)
+    (docid2, term_positions2) = next(iter2)
+
+    while True:
+        if docid1 == docid2:
+            locations = []
+            potential_matches = []
+            position_iter1 = iter(term_positions1)
+            position_iter2 = iter(term_positions2)
+            position1 = next(position_iter1, None)
+            position2 = next(position_iter2, None)
+
+            while position1 is not None:
+                while position2 is not None:
+                    if abs(position1 - position2) <= proximity:
+                        potential_matches.append(position2)
+                    elif position2 > position1:
+                        break
+                    position2 = next(position_iter2, None)
+
+                #TODO: Why is this here?
+                while len(potential_matches) > 0 and abs(potential_matches[0] - position1) > proximity:
+                    potential_matches = potential_matches[1:]
+
+                if len(potential_matches) > 0:
+                    locations.append(position1)
+
+                position1 = next(position_iter1, None)
+
+            if len(locations) > 0:
+                yield (docid1, locations)
+
+            (docid1, term_positions1) = next(iter1)
+            (docid2, term_positions2) = next(iter2)
+
+        elif docid1 < docid2:
+            (docid1, position1) = next(iter1)
+        else:
+            (docid2, position2) = next(iter2)
+
+
+def kgrams(term, k):
+    """
+    Yield all the k-grams in a given term.
+    """
+    term = '$' + term + '$'
+    for i in range(0, len(term) - k + 1):
+         yield term[i:i+k]
+
+
+def build_kgram_index(term_index, k):
+    """
+    Given an inverted index with terms as keys, return an index with k-grams as keys and terms as values.
+    :param term_index: an inverted index
+    :param k: the number of characters to include in each kgram
+    :return: a map from k-grams to terms
+    """
+    result = collections.defaultdict(list)
+
+    for (term, value) in term_index.items():
+        for kgram in kgrams(term, k):
+            bisect.insort_left(result[kgram], term)
+
+    return result
+
+
+def wildcard_match(query, term):
+    """
+    Does a term match a wildcard query?
+    """
+    regex = '^' + query.replace('*', '.*') + '$'
+    return re.match(regex, term) is not None
+
+
+def query_wildcard(index, kgram_index, k, query):
+    kgs = (kg for kg in kgrams(query, k) if '*' not in kg)
+    terms = (kgram_index[kg] for kg in kgs)
+    terms = (term for term in terms if wildcard_match(query, term))
+
+

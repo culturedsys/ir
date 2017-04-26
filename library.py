@@ -10,19 +10,22 @@ def load_documents(dir="documents", ext="txt"):
     Load all documents with the specified extension in the specified directory, using the file name as the document id.
     :param dir: the directory to load from, "documents" by default
     :param ext: the extension to look for, "txt" by default
-    :return: a map from document id to document contents
+    :return: a pair of maps, the first from document id to document id to filename, the second from document id to
+    contents
     """
 
-    result = {}
+    filenames = {}
+    contents = {}
 
     p = pathlib.Path(dir)
 
-    for path in p.glob('*.' + ext):
+    for (i, path) in enumerate(p.glob('*.' + ext)):
         name = path.parts[-1]
 
         with path.open() as f:
             content = ''.join(f)
 
-        result[name] = content
+        filenames[i] = name
+        contents[i] = content
 
-    return result
+    return filenames, contents

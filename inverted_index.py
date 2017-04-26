@@ -184,4 +184,3 @@ def positional_intersect(position_list1,
             (docid1, position1) = next(iter1)
         else:
             (docid2, position2) = next(iter2)
-

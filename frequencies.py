@@ -7,7 +7,7 @@ class FrequencyTable(collections.defaultdict):
     Also maintains the property `length`, the total length of the underlying document
     """
 
-    def __init__(self, document):
+    def __init__(self, document=()):
         collections.defaultdict.__init__(self, int)
         length = 0
 
@@ -17,3 +17,10 @@ class FrequencyTable(collections.defaultdict):
 
         self.length = length
 
+    def __iadd__(self, other):
+        self.length += other.length
+
+        for token, count in other.items():
+            self[token] += count
+
+        return self
